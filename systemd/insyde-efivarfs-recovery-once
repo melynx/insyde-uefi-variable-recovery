@@ -1,0 +1,57 @@
+#!/bin/sh
+
+set -eu
+
+module_name=insyde_efivarfs_recovery
+module_path="/usr/local/lib/insyde-efivarfs-recovery/$(uname -r)/insyde_efivarfs_recovery.ko"
+efivarfs_path=/sys/firmware/efi/efivars
+module_loaded=0
+restore_read_only=0
+
+cleanup()
+{
+	cleanup_status=$?
+	trap - EXIT HUP INT TERM
+
+	if [ "$module_loaded" -eq 1 ]; then
+		if ! /usr/bin/rmmod "$module_name"; then
+			echo "Failed to unload $module_name" >&2
+			cleanup_status=1
+		fi
+	fi
+
+	if [ "$restore_read_only" -eq 1 ]; then
+		if ! /usr/bin/mount -o remount,ro "$efivarfs_path"; then
+			echo "Failed to restore the read-only efivarfs mount" >&2
+			cleanup_status=1
+		fi
+	fi
+
+	exit "$cleanup_status"
+}
+
+trap cleanup EXIT HUP INT TERM
+
+if [ ! -f "$module_path" ]; then
+	echo "No recovery module for running kernel $(uname -r): $module_path" >&2
+	exit 1
+fi
+
+mounted_type=$(/usr/bin/findmnt -n -o FSTYPE --target "$efivarfs_path")
+if [ "$mounted_type" != efivarfs ]; then
+	echo "$efivarfs_path is not an efivarfs mount" >&2
+	exit 1
+fi
+
+mount_options=$(/usr/bin/findmnt -n -o OPTIONS --target "$efivarfs_path")
+case ",$mount_options," in
+	*,ro,*)
+		restore_read_only=1
+		/usr/bin/mount -o remount,rw "$efivarfs_path"
+		;;
+esac
+
+/usr/bin/insmod "$module_path" expose=1
+module_loaded=1
+
+echo "UEFI variable recovery pass completed"

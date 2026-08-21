@@ -1,0 +1,14 @@
+[Unit]
+Description=Expose UEFI variables hidden by the Insyde runtime enumeration bug
+After=local-fs.target
+ConditionPathIsMountPoint=/sys/firmware/efi/efivars
+ConditionVirtualization=!container
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/insyde-efivarfs-recovery-once
+RemainAfterExit=yes
+TimeoutStartSec=60s
+
+[Install]
+WantedBy=multi-user.target
