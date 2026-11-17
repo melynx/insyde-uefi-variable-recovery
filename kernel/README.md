@@ -22,7 +22,8 @@ The module exposes ASCII variable names. It counts and skips non-ASCII names
 because creating those names through the public `efivarfs` file interface
 would encode them incorrectly. It also rejects duplicate enumeration results,
 an abnormal walk end, and any variable returned without
-`EFI_VARIABLE_RUNTIME_ACCESS`.
+`EFI_VARIABLE_RUNTIME_ACCESS` unless specified otherwise with the 
+`skip_non_runtime=1` flag.
 
 Start dry. Read the kernel log. Unload the module. Use `expose=1` only when the
 small empty-start count and the larger seeded count prove the expected

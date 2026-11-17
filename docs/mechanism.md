@@ -43,7 +43,8 @@ The workaround does this:
 
 1. Count the normal empty-name list.
 2. Confirm the seed with exact `GetVariable()`.
-3. Require the seed to have `EFI_VARIABLE_RUNTIME_ACCESS`.
+3. Require the seed to have `EFI_VARIABLE_RUNTIME_ACCESS` unless specified
+otherwise with the `skip_non_runtime=1` flag.
 4. Walk from that seed with `GetNextVariableName()`.
 5. Require a larger list and a normal `EFI_NOT_FOUND` end.
 6. In `expose=1` mode, create only missing in-memory `efivarfs` entries.
