@@ -35,6 +35,11 @@ module_param(expose, bool, 0400);
 MODULE_PARM_DESC(expose,
 	"Create missing in-memory efivarfs entries (default: false, dry run)");
 
+static bool skip_non_runtime;
+module_param(skip_non_runtime, bool, 0400);
+MODULE_PARM_DESC(skip_non_runtime,
+	"Skip variables without EFI_VARIABLE_RUNTIME_ACCESS; else abort recovery (default: false)");
+	
 static char *efivarfs_path = EFIVARFS_DEFAULT_PATH;
 module_param(efivarfs_path, charp, 0400);
 MODULE_PARM_DESC(efivarfs_path, "Path to the mounted efivarfs filesystem");
@@ -163,6 +168,8 @@ static int add_exact_variable(struct list_head *variables,
 	efi_status_t status;
 	unsigned long data_size = 0;
 	u32 attributes = 0;
+	unsigned int i;
+	char varname[128];
 
 	*added = false;
 	if (list_contains(variables, name, guid))
@@ -175,12 +182,22 @@ static int add_exact_variable(struct list_head *variables,
 			status);
 		return -EIO;
 	}
+
+	for (i = 0; i < sizeof(varname) - 1 &&
+	    i < name_size / sizeof(*name); i++)
+		varname[i] = name[i] <= 0x7f ? (char)name[i] : '?';
+	varname[i] = '\0';
+
 	if (!(attributes & EFI_VARIABLE_RUNTIME_ACCESS)) {
-		pr_warn("insyde_efivarfs_recovery: enumerated variable lacks EFI_VARIABLE_RUNTIME_ACCESS\n");
-		return -EINVAL;
+		pr_warn("insyde_efivarfs_recovery: variable %s has attributes 0x%x (no runtime access)\n",
+			varname, attributes);
+		return -EACCES;
 	}
 	if (data_size > MAX_LFS_FILESIZE - sizeof(u32))
 		return -EOVERFLOW;
+
+	pr_info("insyde_efivarfs_recovery: runtime variable %s attributes 0x%x\n",
+		varname, attributes);
 
 	variable = kzalloc(struct_size(variable, name,
 				       name_size / sizeof(*name)), GFP_KERNEL);
@@ -250,13 +267,25 @@ static int collect_seeded_variables(struct list_head *variables,
 		}
 
 		error = add_exact_variable(variables, name, actual_name_size, &guid,
-					   &added);
+                             &added);
+		if (error == -EACCES) {
+			if (skip_non_runtime) {
+				pr_info("insyde_efivarfs_recovery: skipping variable without runtime access\n");
+				error = 0;
+				next_count++;
+				(*count)++;
+				continue;
+			}
+			pr_err("insyde_efivarfs_recovery: strict mode: variable lacks EFI_VARIABLE_RUNTIME_ACCESS; aborting recovery\n");
+			error = -EINVAL;
+			break;
+		}
 		if (error)
 			break;
 		if (!added) {
-			pr_err("insyde_efivarfs_recovery: seeded enumeration returned a duplicate variable\n");
-			error = -ELOOP;
-			break;
+	    	pr_err("insyde_efivarfs_recovery: seeded enumeration returned a duplicate variable\n");
+ 			error = -ELOOP;
+	    	break;
 		}
 		next_count++;
 		(*count)++;

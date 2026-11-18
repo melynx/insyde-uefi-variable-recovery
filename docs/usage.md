@@ -105,6 +105,15 @@ seeded count=152 ...
 dry run complete
 ```
 
+On some machines (such as the Lenovo Yoga 7 2-in-1), some variables (such as
+default signing keys), might lack runtime access. In this case, 
+using the `skip_non_runtime=1` argument when loading the module 
+will allow enumeration to ignore these variables and finish the enumeration:
+
+```sh
+sudo insmod kernel/insyde_efivarfs_recovery.ko skip_non_runtime=1
+```
+
 The exact counts can change. That is fine. These are the conditions that
 matter:
 
