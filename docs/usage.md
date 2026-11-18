@@ -120,8 +120,7 @@ matter:
 - the empty-start count is small;
 - the default enumeration does not contain the seed;
 - exact `GetVariable()` can read the seed;
-- the seed has `EFI_VARIABLE_RUNTIME_ACCESS` unless specified otherwise with
-the `skip_non_runtime=1` flag;
+- the seed has `EFI_VARIABLE_RUNTIME_ACCESS`;
 - the seeded count is larger than the empty-start count; and
 - the seeded walk ends normally with `EFI_NOT_FOUND`.
 
